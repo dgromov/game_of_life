@@ -4,15 +4,15 @@ import android.app.Activity;
 import android.content.Context;
 import android.graphics.*;
 import android.os.Bundle;
-import android.view.Display;
-import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
+import android.view.*;
+
+import java.util.logging.Logger;
 
 public class GameAct extends Activity {
     /** Called when the activity is first created. */
 
-    private GameOfLife theGame;
+//    private GameOfLife theGame;
+//    private Thread gameThread;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -26,36 +26,59 @@ public class GameAct extends Activity {
         Point size = new Point();
         display.getSize(size);
 
-        theGame = new GameOfLife(size.x, size.y, .075);
+
     }
 
-    public void runOneGen(Canvas can) {
-        theGame.drawWorld(can);
-        theGame.liveOneGeneration();
-        try {
-            Thread.sleep(300);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
+    public class LifeView extends SurfaceView implements SurfaceHolder.Callback {
+        private final Logger l = Logger.getLogger(this.getClass().getName());
+        private SurfaceHolder holder;
+        private GameOfLife game;
 
-    public class LifeView extends View {
+
         public LifeView(Context context) {
             super(context);
+            this.holder = getHolder();
+
+            if (holder != null) {
+                holder.addCallback(this);
+            }
         }
 
         @Override
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
+        }
 
-            Paint paint = new Paint();
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.WHITE);
-            canvas.drawPaint(paint);
 
-            runOneGen(canvas);
+        @Override
+        public void surfaceCreated(SurfaceHolder holder) {
+            l.info("Created");
+            Display display = getWindowManager().getDefaultDisplay();
+            Point size = new Point();
+            display.getSize(size);
 
-            invalidate();
+            game = new GameOfLife(holder, size.x, size.y, .1);
+            game.setRunning(true);
+            game.start();
+        }
+
+        @Override
+        public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+
+        }
+
+        @Override
+        public void surfaceDestroyed(SurfaceHolder holder) {
+            l.info("Destroyed");
+            boolean retry = true;
+            game.setRunning(false);
+            while (retry) {
+                try {
+                    game.join();
+                    retry = false;
+                } catch (InterruptedException e) {
+                }
+            }
         }
     }
 }

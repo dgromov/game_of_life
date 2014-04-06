@@ -4,12 +4,12 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.view.SurfaceHolder;
 
 import java.util.*;
-import java.util.logging.Logger;
 
-public class GameOfLife {
-    private final int CELL_SIZE = 5;
+public class GameOfLife extends Thread {
+    private final int CELL_SIZE = 20;
     private final int num_cols;
     private final int num_rows;
 
@@ -20,12 +20,12 @@ public class GameOfLife {
     private int offsetX;
     private int offsetY;
 
+    private final SurfaceHolder holder;
+    private boolean running = true;
 
-    public GameOfLife(final int world_size_x, final int world_size_y,
+    public GameOfLife(SurfaceHolder holder, final int world_size_x, final int world_size_y,
                       double initPercent) {
-        Logger l = Logger.getLogger("GameOfLife");
-        l.info(world_size_x + "");
-        l.info(world_size_y + "");
+        this.holder = holder;
 
         this.num_cols = world_size_x / CELL_SIZE;
         this.num_rows = world_size_y / CELL_SIZE;
@@ -51,7 +51,42 @@ public class GameOfLife {
         }
     }
 
-    public void drawWorld(Canvas can) {
+    @Override
+    public void run() {
+        while(running) {
+            Canvas canvas = null;
+
+            try {
+                canvas = holder.lockCanvas();
+                synchronized (holder) {
+                    liveOneGeneration();
+                    drawWorld(canvas);
+                }
+            }
+            finally {
+                if (canvas != null) {
+                    holder.unlockCanvasAndPost(canvas);
+                }
+            }
+
+            try {
+                sleep(300);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void setRunning(boolean b) {
+        running = b;
+    }
+
+    private void drawWorld(Canvas can) {
+        Paint paint = new Paint();
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(Color.WHITE);
+        can.drawPaint(paint);
+
         for (int i = 0; i < lifeGrid.length; i++){
             for (int j = 0; j < lifeGrid[i].length; j++) {
                 int left = i * CELL_SIZE + (offsetX + 1) / 2;
@@ -60,15 +95,16 @@ public class GameOfLife {
                 Rect currRect = new Rect(left, top,
                                          left + CELL_SIZE, top + CELL_SIZE);
 
-                can.drawRect(currRect, emptyCell);
                 if (lifeGrid[i][j]) {
                     can.drawRect(currRect, liveCellPaint);
                 }
+                can.drawRect(currRect, emptyCell);
+
             }
         }
     }
 
-    public void liveOneGeneration() {
+    private void liveOneGeneration() {
         for(int i = 0; i < num_cols; i++){
             for (int j = 0; j < num_rows; j++){
                 lifeGrid[i][j] = liveOneGeneration(i, j);
@@ -76,7 +112,7 @@ public class GameOfLife {
         }
     }
 
-    public boolean liveOneGeneration(int i, int j) {
+    private boolean liveOneGeneration(int i, int j) {
         int num_living = 0;
         Boolean isAlive = lifeGrid[i][j];
 
