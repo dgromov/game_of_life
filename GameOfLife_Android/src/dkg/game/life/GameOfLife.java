@@ -9,14 +9,14 @@ import android.view.SurfaceHolder;
 import java.util.*;
 
 public class GameOfLife extends Thread {
-    private final int CELL_SIZE = 20;
+    private final int CELL_SIZE = 15;
     private final int num_cols;
     private final int num_rows;
 
     private Paint emptyCell;
     private Paint liveCellPaint;
 
-    private boolean[][] lifeGrid;
+    private int[][] lifeGrid;
     private int offsetX;
     private int offsetY;
 
@@ -32,21 +32,33 @@ public class GameOfLife extends Thread {
         this.offsetX = world_size_x % CELL_SIZE;
         this.offsetY = world_size_y % CELL_SIZE;
 
-        lifeGrid = new boolean[num_cols][num_rows];
+        lifeGrid = new int[num_cols][num_rows];
 
         emptyCell = new Paint();
         emptyCell.setStyle(Paint.Style.STROKE);
         emptyCell.setColor(Color.BLACK);
 
-        Random r = new Random();
+
 
         liveCellPaint = new Paint();
         liveCellPaint.setStyle(Paint.Style.FILL_AND_STROKE);
         liveCellPaint.setColor(Color.GREEN);
 
-        for(int i = 0; i < num_cols; i++){
-            for (int j = 0; j < num_rows; j++){
-                lifeGrid[i][j] = r.nextDouble() < initPercent;
+        initWorld(initPercent);
+
+    }
+
+    private void initWorld(double initPercent) {
+        Random r = new Random();
+
+        for (int i = 0; i < num_cols; i++) {
+            for (int j = 0; j < num_rows; j++) {
+                if (r.nextDouble() < initPercent) {
+                    int color = Color.rgb(r.nextInt(220),
+                            r.nextInt(220),
+                            r.nextInt(220));
+                    lifeGrid[i][j] = color;
+                }
             }
         }
     }
@@ -95,7 +107,8 @@ public class GameOfLife extends Thread {
                 Rect currRect = new Rect(left, top,
                                          left + CELL_SIZE, top + CELL_SIZE);
 
-                if (lifeGrid[i][j]) {
+                if (lifeGrid[i][j] != 0) {
+                    liveCellPaint.setColor(lifeGrid[i][j]);
                     can.drawRect(currRect, liveCellPaint);
                 }
                 can.drawRect(currRect, emptyCell);
@@ -112,10 +125,10 @@ public class GameOfLife extends Thread {
         }
     }
 
-    private boolean liveOneGeneration(int i, int j) {
+    private int liveOneGeneration(int i, int j) {
         int num_living = 0;
-        Boolean isAlive = lifeGrid[i][j];
-
+        Boolean isAlive = lifeGrid[i][j] != 0;
+        int last_parent = 0;
         for (int i_adj = i - 1; i_adj <= i + 1; i_adj++) {
             for (int j_adj = j - 1; j_adj <= j + 1; j_adj++) {
                 if (i_adj == i && j_adj == j)
@@ -123,13 +136,20 @@ public class GameOfLife extends Thread {
 
                 if (i_adj > -1 && i_adj < num_cols &&
                     j_adj > -1 && j_adj < num_rows) {
-                    num_living += lifeGrid[i_adj][j_adj] ? 1 : 0;
+                    if (lifeGrid[i_adj][j_adj] != 0) {
+                        num_living += 1;
+                        last_parent = lifeGrid[i_adj][j_adj];
+                    }
                 }
             }
         }
 
-        return (isAlive && num_living <= 3 && num_living >= 2) ||
-                (!isAlive && num_living == 3);
-
+        if (isAlive && (num_living < 2 || num_living > 3)) {
+            return 0;
+        } else if(!isAlive && num_living == 3) {
+            return last_parent;
+        } else {
+            return lifeGrid[i][j];
+        }
     }
 }
